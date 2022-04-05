@@ -145,24 +145,24 @@ public class RendererApp extends PApplet {
     private void loadCameraFile() {
 
         double[] temp = new double[3];
-        temp[0] = 1;
-        temp[1] = 1;
-        temp[2] = 2;
+        temp[0] = 0;
+        temp[1] = 300;
+        temp[2] = 475;
         pointC = Vector.fromArray(temp);
 
-        temp[0] = -1;
-        temp[1] = -1;
-        temp[2] = -1;
+        temp[0] = 0;
+        temp[1] = -150;
+        temp[2] = -475;
         vectorN = (Vector) Vector.fromArray(temp);
 
         temp[0] = 0;
-        temp[1] = 0;
-        temp[2] = 1;
+        temp[1] = 1;
+        temp[2] = 0;
         vectorV = (Vector) Vector.fromArray(temp);
 
-        d = 1;
-        hx = 1;
-        hy = 1;
+        d = 5;
+        hx = 3;
+        hy = 3;
     }
 
     private void drawObject() {
@@ -196,7 +196,8 @@ public class RendererApp extends PApplet {
 
         for (Vector point : vertices) {
 
-            double[] transformedPoint = Matrix.mult(world2camera, Vector.sub(point, pointC)).toArray();
+            double[] transformedPoint = Matrix.mult(world2camera, Matrix.sub(point, pointC))
+                    .toArray();
             Vector vertex = new Vector(2);
 
             // Perspective Projection and normalization
@@ -210,14 +211,155 @@ public class RendererApp extends PApplet {
             screenVertices.add(vertex);
         }
 
-        // TODO: Change these calls to point draw only
-        fill(255);
         for (List<Integer> t : triangles) {
-            beginShape();
+
+            List<Vector> points = new ArrayList<>();
             for (int i : t) {
-                vertex((float) screenVertices.get(i).getValue(0), (float) screenVertices.get(i).getValue(1));
+                points.add(screenVertices.get(i));
             }
-            endShape();
+
+            // Ordering list by y value
+            points.sort((p1, p2) -> Double.compare(p1.getValue(1), p2.getValue(1)));
+            // straight base
+            drawTriangle(
+                    (int) points.get(0).getValue(0), (int) points.get(0).getValue(1),
+                    (int) points.get(1).getValue(0), (int) points.get(1).getValue(1),
+                    (int) points.get(2).getValue(0), (int) points.get(2).getValue(1), color(255));
+        }
+    }
+
+    private void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int color) {
+
+        // All three points are colinear
+        if ((x0 == x1 && x1 == x2) || (y0 == y1 && y1 == y2)) {
+            drawLine(x0, y0, x1, y1, color);
+            drawLine(x0, y0, x1, y2, color);
+            return;
+        }
+
+        double invA1 = (x1 - x0) / (double) (y1 - y0);
+        double invA2 = (x2 - x0) / (double) (y2 - y0);
+
+        if (invA1 > invA2) {
+            drawTriangle(x0, y0, x2, y2, x1, y1, color);
+            return;
+        }
+
+        double xMin = x0;
+        double xMax = xMin;
+
+        int y = y0;
+
+        set((int) Math.round(xMin), y, color(255));
+
+        y++;
+        xMin += invA1;
+        xMax += invA2;
+
+        while (y <= Math.min(y1, y2)) {
+
+            for (int i = (int) Math.round(xMin); i < xMax; i++) {
+                set(i, y, color);
+            }
+
+            y++;
+            xMin += invA1;
+            xMax += invA2;
+        }
+
+        if (y <= Math.max(y1, y2)) {
+
+            if (y1 > y2) {
+                drawStraightBaseTriangleInv(x1, y1, (int) Math.round(xMin), y, x2, y2, color);
+            } else {
+                drawStraightBaseTriangleInv(x2, y2, x1, y1, (int) Math.round(xMax), y, color);
+            }
+        }
+    }
+
+    private void drawStraightBaseTriangleInv(int x0, int y0, int x1, int y1, int x2, int y2,
+            int color) {
+
+        double invA1 = (x1 - x0) / (double) (y1 - y0);
+        double invA2 = (x2 - x0) / (double) (y2 - y0);
+
+        double xMin = x0;
+        double xMax = x0;
+
+        int y = (int) Math.round(y0);
+
+        set((int) Math.round(xMin), y, color(255));
+
+        y--;
+        xMin -= invA1;
+        xMax -= invA2;
+
+        while (y >= Math.max(y1, y2)) {
+
+            for (int i = (int) Math.round(xMin); i < xMax; i++) {
+                set(i, y, color);
+            }
+
+            y--;
+            xMin -= invA1;
+            xMax -= invA2;
+        }
+    }
+
+    private void drawLine(int x0, int y0, int x1, int y1, int color) {
+
+        int deltaX = x1 - x0;
+        int deltaY = y1 - y0;
+
+        double error = 0;
+        double deltaErr;
+
+        if (deltaX == 0) {
+            deltaErr = 1;
+        } else {
+            deltaErr = Math.abs(deltaY / (double) deltaX);
+        }
+
+        if (deltaX > 0) {
+
+            int y = y0;
+
+            for (int x = x0; x <= x1; x++) {
+                set(x, y, color);
+
+                error += deltaErr;
+                while (error >= 0.5) {
+
+                    y++;
+
+                    error -= 1;
+                }
+            }
+        } else if (deltaX < 0) {
+
+            int y = y0;
+
+            for (int x = x0; x >= x1; x--) {
+                set(x, y, color);
+
+                error += deltaErr;
+                while (error >= 0.5) {
+
+                    y++;
+
+                    error -= 1;
+                }
+            }
+        } else {
+            if (deltaY > 0) {
+                for (int y = y0; y <= y1; y++) {
+                    set(x0, y, color);
+                }
+            } else {
+                for (int y = y0; y >= y1; y--) {
+                    set(x0, y, color);
+                }
+            }
         }
     }
 }
