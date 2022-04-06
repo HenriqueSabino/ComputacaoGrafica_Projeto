@@ -45,9 +45,9 @@ public class RendererApp extends PApplet {
     public void setup() {
         // Draws every pixel on the screen as black
         background(0);
-        loadObjectFile();
-        loadCameraFile();
-        drawObject();
+
+        if (loadObjectFile() && loadCameraFile())
+            drawObject();
     }
 
     @Override
@@ -55,9 +55,9 @@ public class RendererApp extends PApplet {
         if (keyCode == 'R') {
             // reloading files
             background(0);
-            loadObjectFile();
-            loadCameraFile();
-            drawObject();
+
+            if (loadObjectFile() && loadCameraFile())
+                drawObject();
         }
     }
 
@@ -66,7 +66,7 @@ public class RendererApp extends PApplet {
     public void draw() {
     }
 
-    private void loadObjectFile() {
+    private boolean loadObjectFile() {
 
         // Initializing or reseting lists
         vertices = new ArrayList<>();
@@ -97,10 +97,11 @@ public class RendererApp extends PApplet {
                 reader = new Scanner(chosenFile);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
-                return;
+                return false;
             }
         } else {
             System.out.println("No .byu file was found");
+            return false;
         }
 
         // reading file
@@ -138,31 +139,92 @@ public class RendererApp extends PApplet {
             reader.close();
         } catch (Exception e) {
             e.printStackTrace();
+            reader.close();
             System.out.println("File format was not as specified!");
         }
+
+        return true;
     }
 
-    private void loadCameraFile() {
+    private boolean loadCameraFile() {
 
-        double[] temp = new double[3];
-        temp[0] = 0;
-        temp[1] = 300;
-        temp[2] = 475;
-        pointC = Vector.fromArray(temp);
+        File folder = new File(".");
+        File[] files = folder.listFiles();
 
-        temp[0] = 0;
-        temp[1] = -150;
-        temp[2] = -475;
-        vectorN = (Vector) Vector.fromArray(temp);
+        File chosenFile = null;
 
-        temp[0] = 0;
-        temp[1] = 1;
-        temp[2] = 0;
-        vectorV = (Vector) Vector.fromArray(temp);
+        for (File f : files) {
+            if (f.isFile()) {
 
-        d = 5;
-        hx = 3;
-        hy = 3;
+                String name = f.getName();
+                String ext = name.substring(name.lastIndexOf(".") + 1, name.length());
+
+                if (ext.equals("cam")) {
+                    chosenFile = f;
+                    break;
+                }
+            }
+        }
+
+        Scanner reader = null;
+
+        if (chosenFile != null) {
+            try {
+                reader = new Scanner(chosenFile);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return false;
+            }
+        } else {
+            System.out.println("No .cam file was found");
+            return false;
+        }
+
+        // reading file
+        try {
+
+            double[] temp = new double[3];
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            pointC = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            vectorN = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            vectorV = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            hx = reader.nextDouble();
+            hy = reader.nextDouble();
+
+            reader.nextLine();
+
+            d = reader.nextDouble();
+
+            reader.nextLine();
+
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("File format was not as specified!");
+            reader.close();
+
+            return false;
+        }
+
+        return true;
     }
 
     private void drawObject() {
@@ -230,10 +292,11 @@ public class RendererApp extends PApplet {
 
     private void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int color) {
 
+        double area = 0.5 * (x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1));
+
         // All three points are colinear
-        if ((x0 == x1 && x1 == x2) || (y0 == y1 && y1 == y2)) {
-            drawLine(x0, y0, x1, y1, color);
-            drawLine(x0, y0, x1, y2, color);
+        if (area == 0) {
+            drawLine(x0, y0, x2, y2, color);
             return;
         }
 
