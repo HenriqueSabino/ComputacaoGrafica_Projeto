@@ -15,15 +15,12 @@ O arquivo .byu possui a descrição do objeto que será mostrado na tela, e poss
 ```
 <n° vértices> <n° de triângulos>
 <coordenada x do vértice 1> <coordenada y do vértice 1> <coordenada z do vértice 1>
-
 <coordenada x do vértice 2> <coordenada y do vértice 2> <coordenada z do vértice 2>
 
 ...
 
 <coordenada x do vértice n> <coordenada y do vértice n> <coordenada z do vértice n>
-
 <índice do vértice 1 do triângulo 1> <índice do vértice 2 do triângulo 1> <índice do vértice 3 do triângulo 1>
-
 <índice do vértice 1 do triângulo 2> <índice do vértice 2 do triângulo 2> <índice do vértice 3 do triângulo 2>
 
 ...
@@ -37,12 +34,8 @@ O arquivo .cam possui as configurações da câmera virtua, e possui o seguinte 
 
 ```
 <coordenada x do ponto C> <coordenada y do ponto C> <coordenada z do ponto C>
-
 <coordenada x do vetor N> <coordenada y do vetor N> <coordenada z do vetor N>
-
 <coordenada x do vetor V> <coordenada y do vetor V> <coordenada z do vetor V>
-
 <valor de hx> <valor de hy>
-
 <valor de d>
 ```
