@@ -3,14 +3,15 @@
 A primeira parte deste projeto consiste em receber arquivos que descrevem vértices e triângulos de um objeto 3D e um arquivo com configurações de uma câmera virtual para que seja possível fazer a projeção dos pontos do objeto na tela por meio de transformações matriciais.
 ## Como rodar o executável
 
-Para rodar a aplicação é necessário possuir JRE instalado e baixar a última versão disponível em [releases](https://github.com/HenriqueSabino/ComputacaoGrafica_Projeto/releases) aqui no github do projeto.
+Para rodar a aplicação é necessário possuir JRE instalado e baixar a última versão disponível em [releases](https://github.com/HenriqueSabino/ComputacaoGrafica_Projeto/releases) aqui no github do projeto. Na pasta do executável deve haver apenas um arquivo `.byu` e apenas um arquivo `.cam`.
 
 ## Como rodar o código
 
-Para rodar o código é necessário possuir alguma JDK instalada (8 ou superior) e possuir a biblioteca core do Processing 3 dentro da pasta lib (no mesmo nível que a pasta src).
+Para rodar o código é necessário possuir alguma JDK instalada (8 ou superior) e possuir a biblioteca core do Processing 3 dentro da pasta lib (no mesmo nível que a pasta src). Na pasta do projeto, assim como no github, deve haver apenas um arquivo `.byu` e apenas um arquivo `.cam`.
+
 ## Arquivo .byu
 
-O arquivo .byu possui a descrição do objeto que será mostrado na tela, e possui o seguinte formato:
+O arquivo `.byu` possui a descrição do objeto que será mostrado na tela, e possui o seguinte formato:
 
 ```
 <n° vértices> <n° de triângulos>
@@ -30,7 +31,7 @@ O arquivo .byu possui a descrição do objeto que será mostrado na tela, e poss
 
 ## Arquivo .cam
 
-O arquivo .cam possui as configurações da câmera virtua, e possui o seguinte formato:
+O arquivo `.cam` possui as configurações da câmera virtua, e possui o seguinte formato:
 
 ```
 <coordenada x do ponto C> <coordenada y do ponto C> <coordenada z do ponto C>
