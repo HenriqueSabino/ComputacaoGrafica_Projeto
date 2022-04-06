@@ -40,3 +40,8 @@ O arquivo `.cam` possui as configurações da câmera virtua, e possui o seguint
 <valor de hx> <valor de hy>
 <valor de d>
 ```
+
+## Alterando os arquivos .byu e .cam
+
+É possível alterar os arquivos `.byu` e `.cam` com o projeto rodando. Para que as mudanças sejam refletidas visualmente na tela é necessário clicar na tela e precionar a tecla `R`, para que o projeto recarregue os arquivos `.byu` e `.cam`.
+> NOTA: não é necessário que os arquivos modificados possuam o mesmo nome que o arquivo anterior.
