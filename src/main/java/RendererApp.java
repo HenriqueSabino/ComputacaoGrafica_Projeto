@@ -321,7 +321,7 @@ public class RendererApp extends PApplet {
 
         while (y <= Math.min(y1, y2)) {
 
-            for (int i = (int) Math.round(xMin); i < xMax; i++) {
+            for (int i = (int) Math.round(xMin); i <= xMax; i++) {
                 set(i, y, color);
             }
 
@@ -359,7 +359,7 @@ public class RendererApp extends PApplet {
 
         while (y >= Math.max(y1, y2)) {
 
-            for (int i = (int) Math.round(xMin); i < xMax; i++) {
+            for (int i = (int) Math.round(xMin); i <= xMax; i++) {
                 set(i, y, color);
             }
 
