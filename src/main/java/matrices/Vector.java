@@ -126,6 +126,34 @@ public class Vector extends Matrix {
         return scalarDiv(a, norm(a));
     }
 
+    public static Vector lerp(Vector min, Vector max, double percent) {
+
+        if (min.getRows() != max.getRows()) {
+            throw new IncompatibleMatricesException("Matrices must be of the same order " +
+                    "to perform this operation");
+        }
+
+        Vector r = Vector.sub(max, min);
+        r.scalarMult(percent);
+        r.add(min);
+
+        return r;
+    }
+
+    public static Vector componentMult(Vector a, Vector b) {
+        if (a.getRows() != b.getRows()) {
+            throw new IncompatibleMatricesException("Matrices must be of the same order " +
+                    "to perform this operation");
+        }
+
+        Vector r = new Vector(a.getRows());
+        for (int i = 0; i < a.getRows(); i++) {
+            r.setValue(i, a.getValue(i) * b.getValue(i));
+        }
+
+        return r;
+    }
+
     // endregion
 
     public double norm() {

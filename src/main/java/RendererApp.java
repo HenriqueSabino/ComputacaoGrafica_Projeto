@@ -3,8 +3,13 @@ package main.java;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.Map.Entry;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 import main.java.matrices.Matrix;
 import main.java.matrices.Vector;
@@ -16,11 +21,17 @@ public class RendererApp extends PApplet {
     private List<Vector> vertices;
     private List<List<Integer>> triangles;
 
-    // Camera variables
-    private Vector pointC;
-    private Vector vectorN;
-    private Vector vectorV;
-    double d, hx, hy;
+    // Camera
+    private VirtualCamera camera;
+
+    // Ilumination
+    private Vector Iamb, Il;
+    private double Ka, Ks, n;
+    private Vector Kd, Od;
+    private Vector Pl;
+
+    // zBuffer
+    private double[][] zBuffer;
 
     public static void main(String[] args) {
 
@@ -39,6 +50,7 @@ public class RendererApp extends PApplet {
     public void settings() {
         // Creates a drawing canvas
         size(500, 500);
+        zBuffer = new double[width][height];
     }
 
     @Override
@@ -46,7 +58,7 @@ public class RendererApp extends PApplet {
         // Draws every pixel on the screen as black
         background(0);
 
-        if (loadObjectFile() && loadCameraFile())
+        if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
             drawObject();
     }
 
@@ -56,7 +68,7 @@ public class RendererApp extends PApplet {
             // reloading files
             background(0);
 
-            if (loadObjectFile() && loadCameraFile())
+            if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
                 drawObject();
         }
     }
@@ -188,30 +200,130 @@ public class RendererApp extends PApplet {
             temp[0] = reader.nextDouble();
             temp[1] = reader.nextDouble();
             temp[2] = reader.nextDouble();
-            pointC = Vector.fromArray(temp);
+            Vector pointC = Vector.fromArray(temp);
 
             reader.nextLine();
 
             temp[0] = reader.nextDouble();
             temp[1] = reader.nextDouble();
             temp[2] = reader.nextDouble();
-            vectorN = Vector.fromArray(temp);
+            Vector vectorN = Vector.fromArray(temp);
 
             reader.nextLine();
 
             temp[0] = reader.nextDouble();
             temp[1] = reader.nextDouble();
             temp[2] = reader.nextDouble();
-            vectorV = Vector.fromArray(temp);
+            Vector vectorV = Vector.fromArray(temp);
 
             reader.nextLine();
 
-            hx = reader.nextDouble();
-            hy = reader.nextDouble();
+            double hx = reader.nextDouble();
+            double hy = reader.nextDouble();
 
             reader.nextLine();
 
-            d = reader.nextDouble();
+            double d = reader.nextDouble();
+
+            reader.nextLine();
+
+            camera = new VirtualCamera(pointC, vectorN, vectorV, d, hx, hy);
+
+            reader.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.out.println("File format was not as specified!");
+            reader.close();
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean loadIluminationFile() {
+
+        File folder = new File(".");
+        File[] files = folder.listFiles();
+
+        File chosenFile = null;
+
+        for (File f : files) {
+            if (f.isFile()) {
+
+                String name = f.getName();
+                String ext = name.substring(name.lastIndexOf(".") + 1, name.length());
+
+                if (ext.equals("lux")) {
+                    chosenFile = f;
+                    break;
+                }
+            }
+        }
+
+        Scanner reader = null;
+
+        if (chosenFile != null) {
+            try {
+                reader = new Scanner(chosenFile);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return false;
+            }
+        } else {
+            System.out.println("No .lux file was found");
+            return false;
+        }
+
+        // reading file
+        try {
+
+            double[] temp = new double[3];
+
+            temp[0] = reader.nextInt();
+            temp[1] = reader.nextInt();
+            temp[2] = reader.nextInt();
+            Iamb = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            Ka = reader.nextDouble();
+
+            reader.nextLine();
+
+            temp[0] = reader.nextInt();
+            temp[1] = reader.nextInt();
+            temp[2] = reader.nextInt();
+            Il = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            Pl = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            Kd = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            temp[0] = reader.nextDouble();
+            temp[1] = reader.nextDouble();
+            temp[2] = reader.nextDouble();
+            Od = Vector.fromArray(temp);
+
+            reader.nextLine();
+
+            Ks = reader.nextDouble();
+
+            reader.nextLine();
+
+            n = reader.nextDouble();
 
             reader.nextLine();
 
@@ -229,74 +341,99 @@ public class RendererApp extends PApplet {
 
     private void drawObject() {
 
-        Vector vectorV1 = Vector.sub(vectorV, Vector.proj(vectorV, vectorN));
-        Vector vectorU = Vector.cross(vectorN, vectorV1);
-
-        vectorN.normalize();
-        vectorV1.normalize();
-        vectorU.normalize();
-
-        Matrix world2camera = new Matrix(3, 3);
-
-        for (int i = 0; i < world2camera.getRows(); i++) {
-            for (int j = 0; j < world2camera.getColumns(); j++) {
-                switch (i) {
-                    case 0:
-                        world2camera.setValue(i, j, vectorU.getValue(j));
-                        break;
-                    case 1:
-                        world2camera.setValue(i, j, vectorV1.getValue(j));
-                        break;
-                    case 2:
-                        world2camera.setValue(i, j, vectorN.getValue(j));
-                        break;
-                }
+        // Resetting zBuffer
+        for (int i = 0; i < zBuffer.length; i++) {
+            for (int j = 0; j < zBuffer[i].length; j++) {
+                zBuffer[i][j] = Double.POSITIVE_INFINITY;
             }
         }
 
-        List<Vector> screenVertices = new ArrayList<>();
+        List<Vector> sightVertices = new ArrayList<>();
 
         for (Vector point : vertices) {
-
-            double[] transformedPoint = Matrix.mult(world2camera, Matrix.sub(point, pointC))
-                    .toArray();
-            Vector vertex = new Vector(2);
-
-            // Perspective Projection and normalization
-            vertex.setValue(0, d / hx * transformedPoint[0] / transformedPoint[2]);
-            vertex.setValue(1, d / hy * transformedPoint[1] / transformedPoint[2]);
-
-            // Camera to screen conversion
-            vertex.setValue(0, floor((float) ((vertex.getValue(0) + 1) / 2 * width + 0.5)));
-            vertex.setValue(1, floor((float) (height - (vertex.getValue(1) + 1) / 2 * height + 0.5)));
-
-            screenVertices.add(vertex);
+            sightVertices.add(camera.world2Sight(point));
         }
+
+        List<Vector> normals = calculateNormals(triangles, sightVertices);
 
         for (List<Integer> t : triangles) {
 
-            List<Vector> points = new ArrayList<>();
+            Map<Vector, Vector> pointsAndNormals = new LinkedHashMap<>();
+
             for (int i : t) {
-                points.add(screenVertices.get(i));
+                pointsAndNormals.put(sightVertices.get(i), normals.get(i));
             }
 
-            // Ordering list by y value
-            points.sort((p1, p2) -> Double.compare(p1.getValue(1), p2.getValue(1)));
+            pointsAndNormals = pointsAndNormals.entrySet().stream().sorted((e1, e2) -> Double.compare(
+                    camera.sight2Screen(
+                            e1.getKey(), width, height).getValue(1),
+                    camera.sight2Screen(
+                            e2.getKey(), width, height).getValue(1)))
+                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+
+            List<Vector> points = pointsAndNormals.keySet().stream().collect(Collectors.toList());
+            List<Vector> verticesNormals = pointsAndNormals.values().stream().collect(Collectors.toList());
+
             // straight base
-            drawTriangle(
-                    (int) points.get(0).getValue(0), (int) points.get(0).getValue(1),
-                    (int) points.get(1).getValue(0), (int) points.get(1).getValue(1),
-                    (int) points.get(2).getValue(0), (int) points.get(2).getValue(1), color(255));
+            drawTriangle(points, verticesNormals);
         }
     }
 
-    private void drawTriangle(int x0, int y0, int x1, int y1, int x2, int y2, int color) {
+    private List<Vector> calculateNormals(List<List<Integer>> triangles, List<Vector> vertices) {
+
+        // calculating triangle normals
+        List<Vector> vertexNormals = new ArrayList<>();
+
+        for (int i = 0; i < vertices.size(); i++) {
+            vertexNormals.add(new Vector(3));
+        }
+
+        for (List<Integer> t : triangles) {
+            List<Vector> points = new ArrayList<>();
+            for (int i : t) {
+                points.add(vertices.get(i));
+            }
+
+            Vector normal = Vector.cross(Vector.sub(points.get(1), points.get(0)),
+                    Vector.sub(points.get(2), points.get(0)));
+            normal.normalize();
+
+            for (int i : t) {
+                vertexNormals.get(i).add(normal);
+            }
+        }
+
+        for (Vector n : vertexNormals) {
+            n.normalize();
+        }
+
+        return vertexNormals;
+    }
+
+    private void drawTriangle(List<Vector> points, List<Vector> normals) {
+
+        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
+                .collect(Collectors.toList());
+
+        int x0 = (int) screenPoints.get(0).getValue(0);
+        int y0 = (int) screenPoints.get(0).getValue(1);
+        double z0 = points.get(0).getValue(2);
+
+        int x1 = (int) screenPoints.get(1).getValue(0);
+        int y1 = (int) screenPoints.get(1).getValue(1);
+        double z1 = points.get(1).getValue(2);
+
+        int x2 = (int) screenPoints.get(2).getValue(0);
+        int y2 = (int) screenPoints.get(2).getValue(1);
+        double z2 = points.get(2).getValue(2);
 
         double area = 0.5 * (x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1));
 
         // All three points are colinear
         if (area == 0) {
-            drawLine(x0, y0, x2, y2, color);
+            points.remove(1);
+            normals.remove(1);
+            drawLine(points, normals);
             return;
         }
 
@@ -304,7 +441,15 @@ public class RendererApp extends PApplet {
         double invA2 = (x2 - x0) / (double) (y2 - y0);
 
         if (invA1 > invA2) {
-            drawTriangle(x0, y0, x2, y2, x1, y1, color);
+            Vector tmp = points.get(1);
+            points.set(1, points.get(2));
+            points.set(2, tmp);
+
+            tmp = normals.get(1);
+            normals.set(1, normals.get(2));
+            normals.set(2, tmp);
+
+            drawTriangle(points, normals);
             return;
         }
 
@@ -313,7 +458,7 @@ public class RendererApp extends PApplet {
 
         int y = y0;
 
-        set((int) Math.round(xMin), y, color(255));
+        drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
 
         y++;
         xMin += invA1;
@@ -321,8 +466,25 @@ public class RendererApp extends PApplet {
 
         while (y <= Math.min(y1, y2)) {
 
-            for (int i = (int) Math.round(xMin); i <= xMax; i++) {
-                set(i, y, color);
+            for (int x = (int) Math.round(xMin); x <= xMax; x++) {
+
+                Vector screenP = new Vector(2);
+                screenP.setValue(0, x);
+                screenP.setValue(1, y);
+
+                Vector barCoord = barycentricCoords(screenPoints, screenP);
+
+                double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
+
+                Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
+                P.add(Vector.scalarMult(points.get(1), barCoord.getValue(1)));
+                P.add(Vector.scalarMult(points.get(2), barCoord.getValue(2)));
+
+                Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
+                normal.add(Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
+                normal.add(Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+
+                drawTrianglePoint(x, y, z, P, normal);
             }
 
             y++;
@@ -333,15 +495,55 @@ public class RendererApp extends PApplet {
         if (y <= Math.max(y1, y2)) {
 
             if (y1 > y2) {
-                drawStraightBaseTriangleInv(x1, y1, (int) Math.round(xMin), y, x2, y2, color);
+
+                List<Vector> p = new ArrayList<>();
+                double percent = (y - y0) / (double) (y1 - y0);
+
+                p.add(points.get(1));
+                p.add(Vector.lerp(points.get(0), points.get(1), percent));
+                p.add(points.get(2));
+
+                List<Vector> n = new ArrayList<>();
+                n.add(normals.get(1));
+                n.add(Vector.lerp(normals.get(0), normals.get(1), percent));
+                n.add(normals.get(2));
+
+                drawStraightBaseTriangleInv(p, n);
             } else {
-                drawStraightBaseTriangleInv(x2, y2, x1, y1, (int) Math.round(xMax), y, color);
+
+                List<Vector> p = new ArrayList<>();
+                double percent = (y - y0) / (double) (y2 - y0);
+
+                p.add(points.get(2));
+                p.add(points.get(1));
+                p.add(Vector.lerp(points.get(0), points.get(2), percent));
+
+                List<Vector> n = new ArrayList<>();
+                n.add(normals.get(2));
+                n.add(normals.get(1));
+                n.add(Vector.lerp(normals.get(0), normals.get(2), percent));
+
+                drawStraightBaseTriangleInv(p, n);
             }
         }
     }
 
-    private void drawStraightBaseTriangleInv(int x0, int y0, int x1, int y1, int x2, int y2,
-            int color) {
+    private void drawStraightBaseTriangleInv(List<Vector> points, List<Vector> normals) {
+
+        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
+                .collect(Collectors.toList());
+
+        int x0 = (int) screenPoints.get(0).getValue(0);
+        int y0 = (int) screenPoints.get(0).getValue(1);
+        double z0 = points.get(0).getValue(2);
+
+        int x1 = (int) screenPoints.get(1).getValue(0);
+        int y1 = (int) screenPoints.get(1).getValue(1);
+        double z1 = points.get(1).getValue(2);
+
+        int x2 = (int) screenPoints.get(2).getValue(0);
+        int y2 = (int) screenPoints.get(2).getValue(1);
+        double z2 = points.get(2).getValue(2);
 
         double invA1 = (x1 - x0) / (double) (y1 - y0);
         double invA2 = (x2 - x0) / (double) (y2 - y0);
@@ -351,7 +553,7 @@ public class RendererApp extends PApplet {
 
         int y = (int) Math.round(y0);
 
-        set((int) Math.round(xMin), y, color(255));
+        drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
 
         y--;
         xMin -= invA1;
@@ -359,8 +561,25 @@ public class RendererApp extends PApplet {
 
         while (y >= Math.max(y1, y2)) {
 
-            for (int i = (int) Math.round(xMin); i <= xMax; i++) {
-                set(i, y, color);
+            for (int x = (int) Math.round(xMin); x <= xMax; x++) {
+
+                Vector screenP = new Vector(2);
+                screenP.setValue(0, x);
+                screenP.setValue(1, y);
+
+                Vector barCoord = barycentricCoords(screenPoints, screenP);
+
+                double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
+
+                Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
+                P.add(Vector.scalarMult(points.get(1), barCoord.getValue(1)));
+                P.add(Vector.scalarMult(points.get(2), barCoord.getValue(2)));
+
+                Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
+                normal.add(Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
+                normal.add(Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+
+                drawTrianglePoint(x, y, z, P, normal);
             }
 
             y--;
@@ -369,7 +588,27 @@ public class RendererApp extends PApplet {
         }
     }
 
-    private void drawLine(int x0, int y0, int x1, int y1, int color) {
+    private void drawTrianglePoint(int x, int y, double z, Vector P, Vector normal) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            if (z > 0 && zBuffer[x][y] > z) {
+                zBuffer[x][y] = z;
+                set(x, y, calculateIlumination(P, normal));
+            }
+        }
+    }
+
+    private void drawLine(List<Vector> points, List<Vector> normals) {
+
+        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
+                .collect(Collectors.toList());
+
+        int x0 = (int) screenPoints.get(0).getValue(0);
+        int y0 = (int) screenPoints.get(0).getValue(1);
+        double z0 = points.get(0).getValue(2);
+
+        int x1 = (int) screenPoints.get(1).getValue(0);
+        int y1 = (int) screenPoints.get(1).getValue(1);
+        double z1 = points.get(1).getValue(2);
 
         int deltaX = x1 - x0;
         int deltaY = y1 - y0;
@@ -388,7 +627,13 @@ public class RendererApp extends PApplet {
             int y = y0;
 
             for (int x = x0; x <= x1; x++) {
-                set(x, y, color);
+
+                double percent = (x - x0) / (double) (x1 - x0);
+                double z = lerp(z0, z1, percent);
+                Vector P = Vector.lerp(points.get(0), points.get(1), percent);
+                Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
+
+                drawLinePoint(x, y, z, P, normal);
 
                 error += deltaErr;
                 while (error >= 0.5) {
@@ -403,7 +648,13 @@ public class RendererApp extends PApplet {
             int y = y0;
 
             for (int x = x0; x >= x1; x--) {
-                set(x, y, color);
+
+                double percent = (x - x1) / (double) (x0 - x1);
+                double z = lerp(z1, z0, percent);
+                Vector P = Vector.lerp(points.get(1), points.get(0), percent);
+                Vector normal = Vector.lerp(normals.get(1), normals.get(0), percent);
+
+                drawLinePoint(x, y, z, P, normal);
 
                 error += deltaErr;
                 while (error >= 0.5) {
@@ -416,13 +667,137 @@ public class RendererApp extends PApplet {
         } else {
             if (deltaY > 0) {
                 for (int y = y0; y <= y1; y++) {
-                    set(x0, y, color);
+
+                    double percent = (y - y0) / (double) (y1 - y0);
+                    double z = lerp(z0, z1, percent);
+                    Vector P = Vector.lerp(points.get(0), points.get(1), percent);
+                    Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
+
+                    drawLinePoint(x0, y, z, P, normal);
                 }
             } else {
                 for (int y = y0; y >= y1; y--) {
-                    set(x0, y, color);
+                    double percent = (y - y1) / (double) (y0 - y1);
+                    double z = lerp(z1, z0, percent);
+                    Vector P = Vector.lerp(points.get(1), points.get(0), percent);
+                    Vector normal = Vector.lerp(normals.get(1), normals.get(0), percent);
+
+                    drawLinePoint(x0, y, z, P, normal);
                 }
             }
         }
+    }
+
+    private void drawLinePoint(int x, int y, double z, Vector P, Vector normal) {
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            if (zBuffer[x][y] > z) {
+                zBuffer[x][y] = z;
+                set(x, y, calculateIlumination(P, normal));
+            }
+        }
+    }
+
+    private double lerp(double start, double end, double percent) {
+        return (end - start) * percent + start;
+    }
+
+    private Vector barycentricCoords(List<Vector> triangle, Vector p0) {
+
+        Vector p1 = triangle.get(0), p2 = triangle.get(1), p3 = triangle.get(2);
+
+        double a = p1.getValue(0) - p3.getValue(0);
+        double b = p2.getValue(0) - p3.getValue(0);
+        double c = p1.getValue(1) - p3.getValue(1);
+        double d = p2.getValue(1) - p3.getValue(1);
+
+        double invDet = 1 / (a * d - b * c);
+
+        if (!Double.isFinite(invDet)) {
+            println("not finite");
+        }
+
+        Matrix invT = new Matrix(2, 2);
+
+        invT.setValue(0, 0, d);
+        invT.setValue(0, 1, -b);
+        invT.setValue(1, 0, -c);
+        invT.setValue(1, 1, a);
+
+        invT.scalarMult(invDet);
+
+        Matrix p = new Matrix(2, 1);
+        p.setValue(0, 0, p0.getValue(0) - p3.getValue(0));
+        p.setValue(1, 0, p0.getValue(1) - p3.getValue(1));
+
+        Matrix alphaBeta = Matrix.mult(invT, p);
+
+        double alpha = alphaBeta.getValue(0, 0);
+        double beta = alphaBeta.getValue(1, 0);
+        double gamma = 1 - alpha - beta;
+
+        Vector barCoord = new Vector(3);
+        barCoord.setValue(0, alpha);
+        barCoord.setValue(1, beta);
+        barCoord.setValue(2, gamma);
+
+        return barCoord;
+    }
+
+    private int calculateIlumination(Vector P, Vector normal) {
+
+        Vector Ia, Id, Is;
+        Ia = new Vector(3);
+        Id = new Vector(3);
+        Is = new Vector(3);
+        Vector L = Vector.sub(Pl, P);
+        L.normalize();
+        Vector R = Vector.sub(Vector.scalarMult(normal, 2 * Vector.dot(normal, L)), L);
+        Vector V = Vector.sub(camera.getPointC(), P);
+        V.normalize();
+
+        // ambient ilumination
+        Ia = Vector.scalarMult(Iamb, Ka);
+
+        boolean ignoreLightSource = false, ignoreSpecular = false;
+
+        if (Vector.dot(normal, L) < 0) {
+            if (Vector.dot(V, normal) < 0) {
+                normal.scalarMult(-1);
+            } else {
+                ignoreLightSource = true;
+            }
+        }
+
+        if (Vector.dot(V, R) < 0) {
+            ignoreSpecular = true;
+        }
+
+        if (!ignoreLightSource) {
+            // diffuse ilumination
+            Id = Vector.scalarMult(
+                    Vector.componentMult(Vector.componentMult(Kd, Od), Il), Vector.dot(normal,
+                            L));
+
+            if (!ignoreSpecular) {
+                // phong ilumination
+                Is = Vector.scalarMult(Il, Math.pow(Vector.dot(R, V), n) * Ks);
+            }
+        }
+
+        float r = 0, g = 0, b = 0;
+
+        r += (float) (Ia.getValue(0) + Id.getValue(0) + Is.getValue(0));
+        g += (float) (Ia.getValue(1) + Id.getValue(1) + Is.getValue(1));
+        b += (float) (Ia.getValue(2) + Id.getValue(2) + Is.getValue(2));
+
+        if (r > 255)
+            r = 255;
+        if (g > 255)
+            g = 255;
+        if (b > 255)
+            b = 255;
+
+        return color(r, g, b);
+        // return color(255);
     }
 }
