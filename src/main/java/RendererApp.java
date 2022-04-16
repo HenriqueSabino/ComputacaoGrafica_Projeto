@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.Map.Entry;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import main.java.matrices.Matrix;
@@ -712,10 +711,6 @@ public class RendererApp extends PApplet {
 
         double invDet = 1 / (a * d - b * c);
 
-        if (!Double.isFinite(invDet)) {
-            println("not finite");
-        }
-
         Matrix invT = new Matrix(2, 2);
 
         invT.setValue(0, 0, d);
@@ -743,30 +738,35 @@ public class RendererApp extends PApplet {
         return barCoord;
     }
 
-    private int calculateIlumination(Vector P, Vector normal) {
+    private int calculateIlumination(Vector P, Vector N) {
 
         Vector Ia, Id, Is;
         Ia = new Vector(3);
         Id = new Vector(3);
         Is = new Vector(3);
-        Vector L = Vector.sub(Pl, P);
-        L.normalize();
-        Vector R = Vector.sub(Vector.scalarMult(normal, 2 * Vector.dot(normal, L)), L);
+
         Vector V = Vector.sub(camera.getPointC(), P);
         V.normalize();
+        Vector L = Vector.sub(Pl, P);
+        L.normalize();
 
         // ambient ilumination
         Ia = Vector.scalarMult(Iamb, Ka);
 
         boolean ignoreLightSource = false, ignoreSpecular = false;
 
-        if (Vector.dot(normal, L) < 0) {
-            if (Vector.dot(V, normal) < 0) {
-                normal.scalarMult(-1);
+        double dotNL = Vector.dot(N, L);
+
+        if (dotNL < 0) {
+            if (Vector.dot(V, N) < 0) {
+                N.scalarMult(-1);
+                dotNL = Vector.dot(N, L);
             } else {
                 ignoreLightSource = true;
             }
         }
+
+        Vector R = Vector.sub(Vector.scalarMult(N, 2 * dotNL), L);
 
         if (Vector.dot(V, R) < 0) {
             ignoreSpecular = true;
@@ -775,8 +775,8 @@ public class RendererApp extends PApplet {
         if (!ignoreLightSource) {
             // diffuse ilumination
             Id = Vector.scalarMult(
-                    Vector.componentMult(Vector.componentMult(Kd, Od), Il), Vector.dot(normal,
-                            L));
+                    Vector.componentMult(Vector.componentMult(Kd, Od), Il),
+                    dotNL);
 
             if (!ignoreSpecular) {
                 // phong ilumination
