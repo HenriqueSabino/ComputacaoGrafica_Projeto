@@ -394,8 +394,8 @@ public class RendererApp extends PApplet {
                 points.add(vertices.get(i));
             }
 
-            Vector normal = Vector.cross(Vector.sub(points.get(1), points.get(0)),
-                    Vector.sub(points.get(2), points.get(0)));
+            Vector normal = Vector.cross(
+                    Vector.sub(points.get(2), points.get(0)), Vector.sub(points.get(1), points.get(0)));
             normal.normalize();
 
             for (int i : t) {
