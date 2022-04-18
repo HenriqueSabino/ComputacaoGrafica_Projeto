@@ -48,14 +48,14 @@ public class RendererApp extends PApplet {
     @Override
     public void settings() {
         // Creates a drawing canvas
-        size(700, 700);
+        size(500, 500);
         zBuffer = new double[width][height];
     }
 
     @Override
     public void setup() {
         // Draws every pixel on the screen as black
-        background(0, 255, 0);
+        background(0);
 
         if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
             drawObject();
@@ -65,7 +65,7 @@ public class RendererApp extends PApplet {
     public void keyPressed() {
         if (keyCode == 'R') {
             // reloading files
-            background(0, 255, 0);
+            background(0);
 
             if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
                 drawObject();
@@ -483,7 +483,7 @@ public class RendererApp extends PApplet {
 
         while (y <= Math.min(y1, y2)) {
 
-            for (int x = (int) Math.floor(xMin); x <= xMax; x++) {
+            for (int x = (int) xMin; x <= xMax; x++) {
 
                 Vector screenP = new Vector(2);
                 screenP.setValue(0, x);
@@ -570,7 +570,7 @@ public class RendererApp extends PApplet {
         double xMin = x0;
         double xMax = x0;
 
-        int y = (int) Math.floor(y0);
+        int y = (int) y0;
 
         drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
 
@@ -580,7 +580,7 @@ public class RendererApp extends PApplet {
 
         while (y >= Math.max(y1, y2)) {
 
-            for (int x = (int) Math.floor(xMin); x <= xMax; x++) {
+            for (int x = (int) xMin; x <= xMax; x++) {
 
                 Vector screenP = new Vector(2);
                 screenP.setValue(0, x);
@@ -769,7 +769,7 @@ public class RendererApp extends PApplet {
 
         Vector V = Vector.scalarMult(P, -1);
         V = Vector.normalize(V);
-        Vector L = Vector.sub(camera.world2Sight(Pl), P);
+        Vector L = Vector.sub(Pl, P);
         L = Vector.normalize(L);
         // ambient ilumination
         Ia = Vector.scalarMult(Iamb, Ka);
