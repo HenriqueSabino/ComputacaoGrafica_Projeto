@@ -29,9 +29,9 @@ public class VirtualCamera {
         Vector vectorV1 = Vector.sub(vectorV, Vector.proj(vectorV, vectorN));
         Vector vectorU = Vector.cross(vectorN, vectorV1);
 
-        vectorN.normalize();
-        vectorV1.normalize();
-        vectorU.normalize();
+        vectorN = Vector.normalize(vectorN);
+        vectorV1 = Vector.normalize(vectorV1);
+        vectorU = Vector.normalize(vectorU);
 
         w2sMat = new Matrix(3, 3);
 

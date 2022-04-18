@@ -44,7 +44,10 @@ public class Vector extends Matrix {
     public static Vector scalarMult(Vector a, double scalar) {
         Vector result = a.copy();
 
-        result.applyForEach(x -> x * scalar);
+        for (int i = 0; i < result.getRows(); i++) {
+            double value = a.getValue(i) * scalar;
+            result.setValue(i, value);
+        }
 
         return result;
     }
@@ -57,7 +60,10 @@ public class Vector extends Matrix {
 
         Vector result = a.copy();
 
-        result.applyForEach(x -> x / scalar);
+        for (int i = 0; i < result.getRows(); i++) {
+            double value = a.getValue(i) / scalar;
+            result.setValue(i, value);
+        }
 
         return result;
     }
@@ -134,8 +140,8 @@ public class Vector extends Matrix {
         }
 
         Vector r = Vector.sub(max, min);
-        r.scalarMult(percent);
-        r.add(min);
+        r = Vector.scalarMult(r, percent);
+        r = Vector.add(r, min);
 
         return r;
     }
@@ -155,26 +161,6 @@ public class Vector extends Matrix {
     }
 
     // endregion
-
-    public double norm() {
-
-        double sum = 0;
-
-        for (int i = 0; i < getRows(); i++) {
-            sum += getValue(i) * getValue(i);
-        }
-
-        return Math.sqrt(sum);
-    }
-
-    public void normalize() {
-
-        double norm = norm();
-
-        for (int i = 0; i < getRows(); i++) {
-            setValue(i, getValue(i) / norm);
-        }
-    }
 
     public Vector copy() {
         Vector copy = new Vector(getRows());

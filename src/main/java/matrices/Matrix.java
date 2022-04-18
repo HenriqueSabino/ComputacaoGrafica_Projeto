@@ -5,7 +5,6 @@ package main.java.matrices;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
-import java.util.function.Function;
 
 public class Matrix implements Serializable {
 
@@ -67,7 +66,14 @@ public class Matrix implements Serializable {
     public static Matrix scalarMult(Matrix a, double scalar) {
         Matrix result = a.copy();
 
-        result.applyForEach(x -> x * scalar);
+        for (int i = 0; i < result.getRows(); i++) {
+            for (int j = 0; j < result.getColumns(); j++) {
+                for (int k = 0; k < a.getColumns(); k++) {
+                    double value = a.getValue(i, j) * scalar;
+                    result.setValue(i, j, value);
+                }
+            }
+        }
 
         return result;
     }
@@ -80,7 +86,14 @@ public class Matrix implements Serializable {
 
         Matrix result = a.copy();
 
-        result.applyForEach(x -> x / scalar);
+        for (int i = 0; i < result.getRows(); i++) {
+            for (int j = 0; j < result.getColumns(); j++) {
+                for (int k = 0; k < a.getColumns(); k++) {
+                    double value = a.getValue(i, j) / scalar;
+                    result.setValue(i, j, value);
+                }
+            }
+        }
 
         return result;
     }
@@ -142,71 +155,11 @@ public class Matrix implements Serializable {
 
     // endregion
 
-    // region Instance methods
-
-    public void add(Matrix other) {
-        if (getRows() != other.getRows() || getColumns() != other.getColumns()) {
-            throw new IncompatibleMatricesException("Matrices must be of the same order " +
-                    "to perform this operation");
-        }
-
-        for (int i = 0; i < getRows(); i++) {
-            for (int j = 0; j < getColumns(); j++) {
-                double value = getValue(i, j) + other.getValue(i, j);
-                setValue(i, j, value);
-            }
-        }
-    }
-
-    public void sub(Matrix other) {
-        if (getRows() != other.getRows() || getColumns() != other.getColumns()) {
-            throw new IncompatibleMatricesException("Matrices must be of the same order " +
-                    "to perform this operation");
-        }
-
-        for (int i = 0; i < getRows(); i++) {
-            for (int j = 0; j < getColumns(); j++) {
-                double value = getValue(i, j) - other.getValue(i, j);
-                setValue(i, j, value);
-            }
-        }
-    }
-
-    public void scalarMult(double scalar) {
-        applyForEach(x -> x * scalar);
-    }
-
-    public void scalarDiv(double scalar) {
-
-        if (scalar == 0) {
-            throw new IllegalArgumentException("Cannot divide by zero");
-        }
-
-        applyForEach(x -> x / scalar);
-    }
-
-    public void transpose() {
-
-        double[][] newValues = new double[getColumns()][getRows()];
-
-        for (int i = 0; i < getRows(); i++) {
-            for (int j = 0; j < getColumns(); j++) {
-                newValues[j][i] = getValue(i, j);
-            }
-        }
-
-        this.matrix = newValues;
-    }
-
     public void randomize() {
-        applyForEach(p -> Math.random() * 2 - 1);
-    }
-
-    public void applyForEach(Function<Double, Double> function) {
-
         for (int i = 0; i < getRows(); i++) {
             for (int j = 0; j < getColumns(); j++) {
-                setValue(i, j, function.apply(getValue(i, j)));
+                double value = Math.random() * 2 - 1;
+                setValue(i, j, value);
             }
         }
     }

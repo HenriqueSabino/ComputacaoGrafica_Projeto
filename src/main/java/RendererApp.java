@@ -48,14 +48,14 @@ public class RendererApp extends PApplet {
     @Override
     public void settings() {
         // Creates a drawing canvas
-        size(500, 500);
+        size(700, 700);
         zBuffer = new double[width][height];
     }
 
     @Override
     public void setup() {
         // Draws every pixel on the screen as black
-        background(0);
+        background(0, 255, 0);
 
         if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
             drawObject();
@@ -65,7 +65,7 @@ public class RendererApp extends PApplet {
     public void keyPressed() {
         if (keyCode == 'R') {
             // reloading files
-            background(0);
+            background(0, 255, 0);
 
             if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
                 drawObject();
@@ -355,6 +355,8 @@ public class RendererApp extends PApplet {
 
         List<Vector> normals = calculateNormals(triangles, sightVertices);
 
+        triangles.sort((t1, t2) -> sortBarycenter(t1, t2, sightVertices));
+
         for (List<Integer> t : triangles) {
 
             Map<Vector, Vector> pointsAndNormals = new LinkedHashMap<>();
@@ -378,6 +380,21 @@ public class RendererApp extends PApplet {
         }
     }
 
+    private int sortBarycenter(List<Integer> t1, List<Integer> t2, List<Vector> points) {
+        Vector barycenter1 = new Vector(3);
+        Vector barycenter2 = new Vector(3);
+
+        for (Integer i : t1) {
+            barycenter1 = Vector.add(barycenter1, Vector.scalarDiv(points.get(i), 3));
+        }
+
+        for (Integer i : t2) {
+            barycenter2 = Vector.add(barycenter2, Vector.scalarDiv(points.get(i), 3));
+        }
+
+        return Double.compare(barycenter1.getValue(2), barycenter2.getValue(2));
+    }
+
     private List<Vector> calculateNormals(List<List<Integer>> triangles, List<Vector> vertices) {
 
         // calculating triangle normals
@@ -395,15 +412,16 @@ public class RendererApp extends PApplet {
 
             Vector normal = Vector.cross(
                     Vector.sub(points.get(2), points.get(0)), Vector.sub(points.get(1), points.get(0)));
-            normal.normalize();
+            normal = Vector.normalize(normal);
 
             for (int i : t) {
-                vertexNormals.get(i).add(normal);
+                Vector tmp = vertexNormals.get(i);
+                vertexNormals.set(i, Vector.add(tmp, normal));
             }
         }
 
-        for (Vector n : vertexNormals) {
-            n.normalize();
+        for (int i = 0; i < vertexNormals.size(); i++) {
+            vertexNormals.set(i, Vector.normalize(vertexNormals.get(i)));
         }
 
         return vertexNormals;
@@ -465,7 +483,7 @@ public class RendererApp extends PApplet {
 
         while (y <= Math.min(y1, y2)) {
 
-            for (int x = (int) Math.round(xMin); x <= xMax; x++) {
+            for (int x = (int) Math.floor(xMin); x <= xMax; x++) {
 
                 Vector screenP = new Vector(2);
                 screenP.setValue(0, x);
@@ -476,12 +494,14 @@ public class RendererApp extends PApplet {
                 double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
 
                 Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
-                P.add(Vector.scalarMult(points.get(1), barCoord.getValue(1)));
-                P.add(Vector.scalarMult(points.get(2), barCoord.getValue(2)));
+                P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
+                P = Vector.add(P, Vector.scalarMult(points.get(2), barCoord.getValue(2)));
 
                 Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
-                normal.add(Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
-                normal.add(Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+
+                normal = Vector.normalize(normal);
 
                 drawTrianglePoint(x, y, z, P, normal);
             }
@@ -550,7 +570,7 @@ public class RendererApp extends PApplet {
         double xMin = x0;
         double xMax = x0;
 
-        int y = (int) Math.round(y0);
+        int y = (int) Math.floor(y0);
 
         drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
 
@@ -560,7 +580,7 @@ public class RendererApp extends PApplet {
 
         while (y >= Math.max(y1, y2)) {
 
-            for (int x = (int) Math.round(xMin); x <= xMax; x++) {
+            for (int x = (int) Math.floor(xMin); x <= xMax; x++) {
 
                 Vector screenP = new Vector(2);
                 screenP.setValue(0, x);
@@ -571,12 +591,14 @@ public class RendererApp extends PApplet {
                 double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
 
                 Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
-                P.add(Vector.scalarMult(points.get(1), barCoord.getValue(1)));
-                P.add(Vector.scalarMult(points.get(2), barCoord.getValue(2)));
+                P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
+                P = Vector.add(P, Vector.scalarMult(points.get(2), barCoord.getValue(2)));
 
                 Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
-                normal.add(Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
-                normal.add(Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+
+                normal = Vector.normalize(normal);
 
                 drawTrianglePoint(x, y, z, P, normal);
             }
@@ -718,7 +740,7 @@ public class RendererApp extends PApplet {
         invT.setValue(1, 0, -c);
         invT.setValue(1, 1, a);
 
-        invT.scalarMult(invDet);
+        invT = Vector.scalarMult(invT, invDet);
 
         Matrix p = new Matrix(2, 1);
         p.setValue(0, 0, p0.getValue(0) - p3.getValue(0));
@@ -745,11 +767,10 @@ public class RendererApp extends PApplet {
         Id = new Vector(3);
         Is = new Vector(3);
 
-        Vector V = Vector.sub(camera.getPointC(), P);
-        V.normalize();
-        Vector L = Vector.sub(Pl, P);
-        L.normalize();
-
+        Vector V = Vector.scalarMult(P, -1);
+        V = Vector.normalize(V);
+        Vector L = Vector.sub(camera.world2Sight(Pl), P);
+        L = Vector.normalize(L);
         // ambient ilumination
         Ia = Vector.scalarMult(Iamb, Ka);
 
@@ -759,8 +780,9 @@ public class RendererApp extends PApplet {
 
         if (dotNL < 0) {
             if (Vector.dot(V, N) < 0) {
-                N.scalarMult(-1);
+                N = Vector.scalarMult(N, -1);
                 dotNL = Vector.dot(N, L);
+                // diffuse ilumination
             } else {
                 ignoreLightSource = true;
             }
@@ -773,10 +795,9 @@ public class RendererApp extends PApplet {
         }
 
         if (!ignoreLightSource) {
-            // diffuse ilumination
-            Id = Vector.scalarMult(
-                    Vector.componentMult(Vector.componentMult(Kd, Od), Il),
-                    dotNL);
+            Id = Vector.componentMult(Kd, Il);
+            Id = Vector.componentMult(Id, Od);
+            Id = Vector.scalarMult(Id, dotNL);
 
             if (!ignoreSpecular) {
                 // phong ilumination
@@ -786,9 +807,17 @@ public class RendererApp extends PApplet {
 
         float r = 0, g = 0, b = 0;
 
-        r += (float) (Ia.getValue(0) + Id.getValue(0) + Is.getValue(0));
-        g += (float) (Ia.getValue(1) + Id.getValue(1) + Is.getValue(1));
-        b += (float) (Ia.getValue(2) + Id.getValue(2) + Is.getValue(2));
+        r += (float) Ia.getValue(0);
+        g += (float) Ia.getValue(1);
+        b += (float) Ia.getValue(2);
+
+        r += (float) Id.getValue(0);
+        g += (float) Id.getValue(1);
+        b += (float) Id.getValue(2);
+
+        r += (float) Is.getValue(0);
+        g += (float) Is.getValue(1);
+        b += (float) Is.getValue(2);
 
         if (r > 255)
             r = 255;
@@ -798,6 +827,5 @@ public class RendererApp extends PApplet {
             b = 255;
 
         return color(r, g, b);
-        // return color(255);
     }
 }
