@@ -49,11 +49,11 @@ public class RendererApp extends PApplet {
     public void settings() {
         // Creates a drawing canvas
         size(500, 500);
-        zBuffer = new double[width][height];
     }
 
     @Override
     public void setup() {
+        zBuffer = new double[width][height];
         // Draws every pixel on the screen as black
         background(0);
 
@@ -69,6 +69,8 @@ public class RendererApp extends PApplet {
 
             if (loadObjectFile() && loadCameraFile() && loadIluminationFile())
                 drawObject();
+        } else if (keyCode == 'P') {
+            println(mouseX + " " + mouseY);
         }
     }
 
@@ -392,7 +394,7 @@ public class RendererApp extends PApplet {
             barycenter2 = Vector.add(barycenter2, Vector.scalarDiv(points.get(i), 3));
         }
 
-        return Double.compare(barycenter1.getValue(2), barycenter2.getValue(2));
+        return Double.compare(barycenter2.getValue(2), barycenter1.getValue(2));
     }
 
     private List<Vector> calculateNormals(List<List<Integer>> triangles, List<Vector> vertices) {
@@ -434,25 +436,12 @@ public class RendererApp extends PApplet {
 
         int x0 = (int) screenPoints.get(0).getValue(0);
         int y0 = (int) screenPoints.get(0).getValue(1);
-        double z0 = points.get(0).getValue(2);
 
         int x1 = (int) screenPoints.get(1).getValue(0);
         int y1 = (int) screenPoints.get(1).getValue(1);
-        double z1 = points.get(1).getValue(2);
 
         int x2 = (int) screenPoints.get(2).getValue(0);
         int y2 = (int) screenPoints.get(2).getValue(1);
-        double z2 = points.get(2).getValue(2);
-
-        double area = 0.5 * (x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1));
-
-        // All three points are colinear
-        if (area == 0) {
-            points.remove(1);
-            normals.remove(1);
-            drawLine(points, normals);
-            return;
-        }
 
         double invA1 = (x1 - x0) / (double) (y1 - y0);
         double invA2 = (x2 - x0) / (double) (y2 - y0);
@@ -468,18 +457,17 @@ public class RendererApp extends PApplet {
 
             drawTriangle(points, normals);
             return;
+        } else if (invA1 == invA2) {
+            points.remove(1);
+            normals.remove(1);
+            drawLine(points, normals);
+            return;
         }
 
         double xMin = x0;
         double xMax = xMin;
 
         int y = y0;
-
-        drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
-
-        y++;
-        xMin += invA1;
-        xMax += invA2;
 
         while (y <= Math.min(y1, y2)) {
 
@@ -491,7 +479,8 @@ public class RendererApp extends PApplet {
 
                 Vector barCoord = barycentricCoords(screenPoints, screenP);
 
-                double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
+                // double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 *
+                // barCoord.getValue(2);
 
                 Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
                 P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
@@ -503,7 +492,7 @@ public class RendererApp extends PApplet {
 
                 normal = Vector.normalize(normal);
 
-                drawTrianglePoint(x, y, z, P, normal);
+                drawTrianglePoint(x, y, P.getValue(2), P, normal);
             }
 
             y++;
@@ -554,31 +543,68 @@ public class RendererApp extends PApplet {
 
         int x0 = (int) screenPoints.get(0).getValue(0);
         int y0 = (int) screenPoints.get(0).getValue(1);
-        double z0 = points.get(0).getValue(2);
 
         int x1 = (int) screenPoints.get(1).getValue(0);
         int y1 = (int) screenPoints.get(1).getValue(1);
-        double z1 = points.get(1).getValue(2);
 
         int x2 = (int) screenPoints.get(2).getValue(0);
         int y2 = (int) screenPoints.get(2).getValue(1);
-        double z2 = points.get(2).getValue(2);
+
+        // Barycentric coordinates on screen vertices might give wrong inverted
+        // triangles values
+        if (y1 - y0 == 0) {
+            Vector tmp = points.get(2);
+            points.set(2, points.get(0));
+            points.set(0, tmp);
+
+            tmp = normals.get(2);
+            normals.set(2, normals.get(0));
+            normals.set(0, tmp);
+
+            drawTriangle(points, normals);
+            return;
+        }
+
+        if (y2 - y0 == 0) {
+            Vector tmp = points.get(1);
+            points.set(1, points.get(0));
+            points.set(0, tmp);
+
+            tmp = normals.get(1);
+            normals.set(1, normals.get(0));
+            normals.set(0, tmp);
+
+            drawTriangle(points, normals);
+            return;
+        }
 
         double invA1 = (x1 - x0) / (double) (y1 - y0);
         double invA2 = (x2 - x0) / (double) (y2 - y0);
+
+        if (invA1 < invA2) {
+            Vector tmp = points.get(1);
+            points.set(1, points.get(2));
+            points.set(2, tmp);
+
+            tmp = normals.get(1);
+            normals.set(1, normals.get(2));
+            normals.set(2, tmp);
+
+            drawStraightBaseTriangleInv(points, normals);
+            return;
+        } else if (invA1 == invA2) {
+            points.remove(1);
+            normals.remove(1);
+            drawLine(points, normals);
+            return;
+        }
 
         double xMin = x0;
         double xMax = x0;
 
         int y = (int) y0;
 
-        drawTrianglePoint(x0, y0, z0, points.get(0), normals.get(0));
-
-        y--;
-        xMin -= invA1;
-        xMax -= invA2;
-
-        while (y >= Math.max(y1, y2)) {
+        while (y >= Math.min(y1, y2)) {
 
             for (int x = (int) xMin; x <= xMax; x++) {
 
@@ -588,8 +614,6 @@ public class RendererApp extends PApplet {
 
                 Vector barCoord = barycentricCoords(screenPoints, screenP);
 
-                double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 * barCoord.getValue(2);
-
                 Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
                 P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
                 P = Vector.add(P, Vector.scalarMult(points.get(2), barCoord.getValue(2)));
@@ -598,9 +622,9 @@ public class RendererApp extends PApplet {
                 normal = Vector.add(normal, Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
                 normal = Vector.add(normal, Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
 
-                normal = Vector.normalize(normal);
+                // normal = Vector.normalize(normal);
 
-                drawTrianglePoint(x, y, z, P, normal);
+                drawTrianglePoint(x, y, P.getValue(2), P, normal);
             }
 
             y--;
@@ -659,7 +683,11 @@ public class RendererApp extends PApplet {
                 error += deltaErr;
                 while (error >= 0.5) {
 
-                    y++;
+                    if (deltaY > 0) {
+                        y++;
+                    } else {
+                        y--;
+                    }
 
                     error -= 1;
                 }
@@ -680,7 +708,11 @@ public class RendererApp extends PApplet {
                 error += deltaErr;
                 while (error >= 0.5) {
 
-                    y++;
+                    if (deltaY > 0) {
+                        y++;
+                    } else {
+                        y--;
+                    }
 
                     error -= 1;
                 }
@@ -711,7 +743,7 @@ public class RendererApp extends PApplet {
 
     private void drawLinePoint(int x, int y, double z, Vector P, Vector normal) {
         if (x >= 0 && x < width && y >= 0 && y < height) {
-            if (zBuffer[x][y] > z) {
+            if (z > 0 && zBuffer[x][y] > z) {
                 zBuffer[x][y] = z;
                 set(x, y, calculateIlumination(P, normal));
             }
@@ -756,6 +788,10 @@ public class RendererApp extends PApplet {
         barCoord.setValue(0, alpha);
         barCoord.setValue(1, beta);
         barCoord.setValue(2, gamma);
+
+        if (Math.abs(alpha) > 1 || Math.abs(beta) > 1 || Math.abs(gamma) > 1) {
+            println("hello");
+        }
 
         return barCoord;
     }
