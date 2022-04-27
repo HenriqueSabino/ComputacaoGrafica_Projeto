@@ -431,337 +431,133 @@ public class RendererApp extends PApplet {
 
     private void drawTriangle(List<Vector> points, List<Vector> normals) {
 
-        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
+        List<Vector> screenPoints = points.stream().map((p) -> camera.sight2Screen(p, width, height))
                 .collect(Collectors.toList());
 
         int x0 = (int) screenPoints.get(0).getValue(0);
         int y0 = (int) screenPoints.get(0).getValue(1);
-
         int x1 = (int) screenPoints.get(1).getValue(0);
         int y1 = (int) screenPoints.get(1).getValue(1);
-
         int x2 = (int) screenPoints.get(2).getValue(0);
         int y2 = (int) screenPoints.get(2).getValue(1);
 
-        double invA1 = (x1 - x0) / (double) (y1 - y0);
-        double invA2 = (x2 - x0) / (double) (y2 - y0);
-
-        if (invA1 > invA2) {
-            Vector tmp = points.get(1);
-            points.set(1, points.get(2));
-            points.set(2, tmp);
-
-            tmp = normals.get(1);
-            normals.set(1, normals.get(2));
-            normals.set(2, tmp);
-
-            drawTriangle(points, normals);
+        // Offscreen triangles
+        if (y0 > height || y2 < 0)
             return;
-        } else if (invA1 == invA2) {
-            points.remove(1);
-            normals.remove(1);
-            drawLine(points, normals);
+
+        if (x1 > x2 && (x1 < 0 || x2 > width))
             return;
-        }
+        else if (x2 > x1 && (x2 < 0 || x1 > width))
+            return;
 
-        double xMin = x0;
-        double xMax = xMin;
+        // defining the slopes
+        double dx1 = (y1 - y0 > 0) ? (x1 - x0) / (double) (y1 - y0) : 0;
+        double dx2 = (y2 - y0 > 0) ? (x2 - x0) / (double) (y2 - y0) : 0;
 
+        double xMin = x0, xMax = x0;
         int y = y0;
 
-        while (y <= Math.min(y1, y2)) {
+        // first half
+        while (y <= y1) {
 
-            for (int x = (int) xMin; x <= xMax; x++) {
+            int xStart = (xMin < xMax) ? (int) xMin : (int) xMax;
+            int xEnd = (xMin < xMax) ? (int) xMax : (int) xMin;
 
-                Vector screenP = new Vector(2);
-                screenP.setValue(0, x);
-                screenP.setValue(1, y);
-
-                Vector barCoord = barycentricCoords(screenPoints, screenP);
-
-                // double z = z0 * barCoord.getValue(0) + z1 * barCoord.getValue(1) + z2 *
-                // barCoord.getValue(2);
-
-                Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
-                P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
-                P = Vector.add(P, Vector.scalarMult(points.get(2), barCoord.getValue(2)));
-
-                Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
-                normal = Vector.add(normal, Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
-                normal = Vector.add(normal, Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
-
-                normal = Vector.normalize(normal);
-
-                drawTrianglePoint(x, y, P.getValue(2), P, normal);
+            for (int x = xStart; x <= xEnd; x++) {
+                drawPoint(x, y, screenPoints, points, normals);
             }
 
             y++;
-            xMin += invA1;
-            xMax += invA2;
+            xMin += dx1;
+            xMax += dx2;
         }
 
-        if (y <= Math.max(y1, y2)) {
+        dx1 = (y2 - y1 > 0) ? (x2 - x1) / (double) (y2 - y1) : 0;
 
-            if (y1 > y2) {
+        xMin = x1;
+        y = y1;
+        xMax = (int) (dx2 * (y - y0)) + x0;
 
-                List<Vector> p = new ArrayList<>();
-                double percent = (y - y0) / (double) (y1 - y0);
+        // second half
+        while (y <= y2) {
 
-                p.add(points.get(1));
-                p.add(Vector.lerp(points.get(0), points.get(1), percent));
-                p.add(points.get(2));
+            int xStart = (xMin < xMax) ? (int) xMin : (int) xMax;
+            int xEnd = (xMin < xMax) ? (int) xMax : (int) xMin;
 
-                List<Vector> n = new ArrayList<>();
-                n.add(normals.get(1));
-                n.add(Vector.lerp(normals.get(0), normals.get(1), percent));
-                n.add(normals.get(2));
-
-                drawStraightBaseTriangleInv(p, n);
-            } else {
-
-                List<Vector> p = new ArrayList<>();
-                double percent = (y - y0) / (double) (y2 - y0);
-
-                p.add(points.get(2));
-                p.add(points.get(1));
-                p.add(Vector.lerp(points.get(0), points.get(2), percent));
-
-                List<Vector> n = new ArrayList<>();
-                n.add(normals.get(2));
-                n.add(normals.get(1));
-                n.add(Vector.lerp(normals.get(0), normals.get(2), percent));
-
-                drawStraightBaseTriangleInv(p, n);
+            for (int x = xStart; x <= xEnd; x++) {
+                drawPoint(x, y, screenPoints, points, normals);
             }
+
+            y++;
+            xMin += dx1;
+            xMax += dx2;
         }
+
     }
 
-    private void drawStraightBaseTriangleInv(List<Vector> points, List<Vector> normals) {
+    private void drawPoint(int x, int y, List<Vector> screenTriangle, List<Vector> triangle,
+            List<Vector> normals) {
 
-        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
-                .collect(Collectors.toList());
+        Vector screenP = new Vector(2);
+        screenP.setValue(0, x);
+        screenP.setValue(1, y);
 
-        int x0 = (int) screenPoints.get(0).getValue(0);
-        int y0 = (int) screenPoints.get(0).getValue(1);
+        if (isLine(screenTriangle)) {
 
-        int x1 = (int) screenPoints.get(1).getValue(0);
-        int y1 = (int) screenPoints.get(1).getValue(1);
+            double percent = (y - screenTriangle.get(0).getValue(1)) /
+                    (screenTriangle.get(2).getValue(1) - screenTriangle.get(0).getValue(1));
 
-        int x2 = (int) screenPoints.get(2).getValue(0);
-        int y2 = (int) screenPoints.get(2).getValue(1);
+            Vector P = Vector.lerp(triangle.get(0), triangle.get(1), percent);
+            Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
 
-        // Barycentric coordinates on screen vertices might give wrong inverted
-        // triangles values
-        if (y1 - y0 == 0) {
-            Vector tmp = points.get(2);
-            points.set(2, points.get(0));
-            points.set(0, tmp);
+            set(x, y, calculateIlumination(P, normal));
+        } else {
 
-            tmp = normals.get(2);
-            normals.set(2, normals.get(0));
-            normals.set(0, tmp);
+            Vector baryCoord = barycentricCoords(screenTriangle, screenP);
 
-            drawTriangle(points, normals);
-            return;
-        }
+            Vector P = Vector.scalarMult(triangle.get(0), baryCoord.getValue(0));
+            P = Vector.add(P, Vector.scalarMult(triangle.get(1), baryCoord.getValue(1)));
+            P = Vector.add(P, Vector.scalarMult(triangle.get(2), baryCoord.getValue(2)));
 
-        if (y2 - y0 == 0) {
-            Vector tmp = points.get(1);
-            points.set(1, points.get(0));
-            points.set(0, tmp);
+            if (P.getValue(2) > 0 && zBuffer[x][y] > P.getValue(2)) {
+                zBuffer[x][y] = P.getValue(2);
 
-            tmp = normals.get(1);
-            normals.set(1, normals.get(0));
-            normals.set(0, tmp);
-
-            drawTriangle(points, normals);
-            return;
-        }
-
-        double invA1 = (x1 - x0) / (double) (y1 - y0);
-        double invA2 = (x2 - x0) / (double) (y2 - y0);
-
-        if (invA1 < invA2) {
-            Vector tmp = points.get(1);
-            points.set(1, points.get(2));
-            points.set(2, tmp);
-
-            tmp = normals.get(1);
-            normals.set(1, normals.get(2));
-            normals.set(2, tmp);
-
-            drawStraightBaseTriangleInv(points, normals);
-            return;
-        } else if (invA1 == invA2) {
-            points.remove(1);
-            normals.remove(1);
-            drawLine(points, normals);
-            return;
-        }
-
-        double xMin = x0;
-        double xMax = x0;
-
-        int y = (int) y0;
-
-        while (y >= Math.min(y1, y2)) {
-
-            for (int x = (int) xMin; x <= xMax; x++) {
-
-                Vector screenP = new Vector(2);
-                screenP.setValue(0, x);
-                screenP.setValue(1, y);
-
-                Vector barCoord = barycentricCoords(screenPoints, screenP);
-
-                Vector P = Vector.scalarMult(points.get(0), barCoord.getValue(0));
-                P = Vector.add(P, Vector.scalarMult(points.get(1), barCoord.getValue(1)));
-                P = Vector.add(P, Vector.scalarMult(points.get(2), barCoord.getValue(2)));
-
-                Vector normal = Vector.scalarMult(normals.get(0), barCoord.getValue(0));
-                normal = Vector.add(normal, Vector.scalarMult(normals.get(1), barCoord.getValue(1)));
-                normal = Vector.add(normal, Vector.scalarMult(normals.get(2), barCoord.getValue(2)));
+                Vector normal = Vector.scalarMult(normals.get(0), baryCoord.getValue(0));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(1), baryCoord.getValue(1)));
+                normal = Vector.add(normal, Vector.scalarMult(normals.get(2), baryCoord.getValue(2)));
 
                 // normal = Vector.normalize(normal);
-
-                drawTrianglePoint(x, y, P.getValue(2), P, normal);
-            }
-
-            y--;
-            xMin -= invA1;
-            xMax -= invA2;
-        }
-    }
-
-    private void drawTrianglePoint(int x, int y, double z, Vector P, Vector normal) {
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-            if (z > 0 && zBuffer[x][y] > z) {
-                zBuffer[x][y] = z;
+                // if (baryCoord.getValue(0) > 1 || baryCoord.getValue(1) > 1 ||
+                // baryCoord.getValue(2) > 1
+                // || baryCoord.getValue(0) < 0 || baryCoord.getValue(1) < 0
+                // || baryCoord.getValue(2) < 0) {
+                // set(x, y, color(0, 255, 0));
+                // println();
+                // } else
                 set(x, y, calculateIlumination(P, normal));
             }
         }
     }
 
-    private void drawLine(List<Vector> points, List<Vector> normals) {
+    private boolean isLine(List<Vector> points) {
 
-        List<Vector> screenPoints = points.stream().map(p -> camera.sight2Screen(p, width, height))
-                .collect(Collectors.toList());
+        // checks if the area of the triangle is zero
+        double a = points.get(0).getValue(0) - points.get(2).getValue(0);
+        double b = points.get(1).getValue(0) - points.get(2).getValue(0);
+        double c = points.get(0).getValue(1) - points.get(2).getValue(1);
+        double d = points.get(1).getValue(1) - points.get(2).getValue(1);
 
-        int x0 = (int) screenPoints.get(0).getValue(0);
-        int y0 = (int) screenPoints.get(0).getValue(1);
-        double z0 = points.get(0).getValue(2);
-
-        int x1 = (int) screenPoints.get(1).getValue(0);
-        int y1 = (int) screenPoints.get(1).getValue(1);
-        double z1 = points.get(1).getValue(2);
-
-        int deltaX = x1 - x0;
-        int deltaY = y1 - y0;
-
-        double error = 0;
-        double deltaErr;
-
-        if (deltaX == 0) {
-            deltaErr = 1;
-        } else {
-            deltaErr = Math.abs(deltaY / (double) deltaX);
-        }
-
-        if (deltaX > 0) {
-
-            int y = y0;
-
-            for (int x = x0; x <= x1; x++) {
-
-                double percent = (x - x0) / (double) (x1 - x0);
-                double z = lerp(z0, z1, percent);
-                Vector P = Vector.lerp(points.get(0), points.get(1), percent);
-                Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
-
-                drawLinePoint(x, y, z, P, normal);
-
-                error += deltaErr;
-                while (error >= 0.5) {
-
-                    if (deltaY > 0) {
-                        y++;
-                    } else {
-                        y--;
-                    }
-
-                    error -= 1;
-                }
-            }
-        } else if (deltaX < 0) {
-
-            int y = y0;
-
-            for (int x = x0; x >= x1; x--) {
-
-                double percent = (x - x1) / (double) (x0 - x1);
-                double z = lerp(z1, z0, percent);
-                Vector P = Vector.lerp(points.get(1), points.get(0), percent);
-                Vector normal = Vector.lerp(normals.get(1), normals.get(0), percent);
-
-                drawLinePoint(x, y, z, P, normal);
-
-                error += deltaErr;
-                while (error >= 0.5) {
-
-                    if (deltaY > 0) {
-                        y++;
-                    } else {
-                        y--;
-                    }
-
-                    error -= 1;
-                }
-            }
-        } else {
-            if (deltaY > 0) {
-                for (int y = y0; y <= y1; y++) {
-
-                    double percent = (y - y0) / (double) (y1 - y0);
-                    double z = lerp(z0, z1, percent);
-                    Vector P = Vector.lerp(points.get(0), points.get(1), percent);
-                    Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
-
-                    drawLinePoint(x0, y, z, P, normal);
-                }
-            } else {
-                for (int y = y0; y >= y1; y--) {
-                    double percent = (y - y1) / (double) (y0 - y1);
-                    double z = lerp(z1, z0, percent);
-                    Vector P = Vector.lerp(points.get(1), points.get(0), percent);
-                    Vector normal = Vector.lerp(normals.get(1), normals.get(0), percent);
-
-                    drawLinePoint(x0, y, z, P, normal);
-                }
-            }
-        }
+        return a * d - b * c == 0;
     }
 
-    private void drawLinePoint(int x, int y, double z, Vector P, Vector normal) {
-        if (x >= 0 && x < width && y >= 0 && y < height) {
-            if (z > 0 && zBuffer[x][y] > z) {
-                zBuffer[x][y] = z;
-                set(x, y, calculateIlumination(P, normal));
-            }
-        }
-    }
+    private Vector barycentricCoords(List<Vector> triangle, Vector P) {
 
-    private double lerp(double start, double end, double percent) {
-        return (end - start) * percent + start;
-    }
+        Vector A = triangle.get(0), B = triangle.get(1), C = triangle.get(2);
 
-    private Vector barycentricCoords(List<Vector> triangle, Vector p0) {
-
-        Vector p1 = triangle.get(0), p2 = triangle.get(1), p3 = triangle.get(2);
-
-        double a = p1.getValue(0) - p3.getValue(0);
-        double b = p2.getValue(0) - p3.getValue(0);
-        double c = p1.getValue(1) - p3.getValue(1);
-        double d = p2.getValue(1) - p3.getValue(1);
+        double a = A.getValue(0) - C.getValue(0);
+        double b = B.getValue(0) - C.getValue(0);
+        double c = A.getValue(1) - C.getValue(1);
+        double d = B.getValue(1) - C.getValue(1);
 
         double invDet = 1 / (a * d - b * c);
 
@@ -772,13 +568,13 @@ public class RendererApp extends PApplet {
         invT.setValue(1, 0, -c);
         invT.setValue(1, 1, a);
 
-        invT = Vector.scalarMult(invT, invDet);
+        invT = Matrix.scalarMult(invT, invDet);
 
-        Matrix p = new Matrix(2, 1);
-        p.setValue(0, 0, p0.getValue(0) - p3.getValue(0));
-        p.setValue(1, 0, p0.getValue(1) - p3.getValue(1));
+        Matrix pC = new Matrix(2, 1);
+        pC.setValue(0, 0, P.getValue(0) - C.getValue(0));
+        pC.setValue(1, 0, P.getValue(1) - C.getValue(1));
 
-        Matrix alphaBeta = Matrix.mult(invT, p);
+        Matrix alphaBeta = Matrix.mult(invT, pC);
 
         double alpha = alphaBeta.getValue(0, 0);
         double beta = alphaBeta.getValue(1, 0);
@@ -788,10 +584,6 @@ public class RendererApp extends PApplet {
         barCoord.setValue(0, alpha);
         barCoord.setValue(1, beta);
         barCoord.setValue(2, gamma);
-
-        if (Math.abs(alpha) > 1 || Math.abs(beta) > 1 || Math.abs(gamma) > 1) {
-            println("hello");
-        }
 
         return barCoord;
     }
