@@ -72,8 +72,4 @@ public class VirtualCamera {
 
         return vertex;
     }
-
-    public Vector getPointC() {
-        return pointC;
-    }
 }

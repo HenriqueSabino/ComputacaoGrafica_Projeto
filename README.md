@@ -41,9 +41,28 @@ O arquivo `.cam` possui as configurações da câmera virtua, e possui o seguint
 <valor de d>
 ```
 
-> NOTA: É importante ressaltar que no final dos arquivos `.byu` e `.cam` deve haver uma linha em branco para que o projeto funcione corretamente.
+## Arquivo .lux
 
-## Alterando os arquivos .byu e .cam
+O arquivo `.lux` possui as configurações de iluminação, e possui o seguinte formato:
 
-É possível alterar os arquivos `.byu` e `.cam` com o projeto rodando. Para que as mudanças sejam refletidas visualmente na tela é necessário clicar na tela e precionar a tecla `R`, para que o projeto recarregue os arquivos `.byu` e `.cam`.
+```
+<valor R de Iamb> <valor G de Iamb> <valor B de Iamb>
+<valor de Ka>
+<valor R de Il> <valor G de Il> <valor B de Il>
+<coordenada x do vetor Pl> <coordenada y do vetor Pl> <coordenada z do vetor Pl>
+<coordenada x do vetor Kd> <coordenada y do vetor Kd> <coordenada z do vetor Kd>
+<coordenada x do vetor Od> <coordenada y do vetor Od> <coordenada z do vetor Od>
+<valor de Ks>
+<valor de n>
+```
+
+> NOTA: É importante ressaltar que no final dos arquivos `.byu`, `.cam` e `.lux` deve haver uma linha em branco para que o projeto funcione corretamente.
+
+## Alterando os arquivos .byu, .cam e .lux
+
+É possível alterar os arquivos `.byu`, `.cam` e `.lux` com o projeto rodando. Para que as mudanças sejam refletidas visualmente na tela é necessário clicar na tela e precionar a tecla `R`, para que o projeto recarregue os arquivos `.byu`, `.cam` e `.lux`.
+
+## Importante
+Dependendo da linguagem utilizada no sistema operacional, é possível que seja necessária a troca do caractér que delimita as casas decimais de
+`.` para `,` nos arquivos `.byu`, `.cam` e `.lux`.
 > NOTA: não é necessário que os arquivos modificados possuam o mesmo nome que o arquivo anterior.

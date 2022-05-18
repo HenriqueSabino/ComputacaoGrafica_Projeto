@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import main.java.matrices.Matrix;
@@ -361,22 +360,23 @@ public class RendererApp extends PApplet {
 
         for (List<Integer> t : triangles) {
 
-            Map<Vector, Vector> pointsAndNormals = new LinkedHashMap<>();
+            Map<Vector, Vector> pointsToNormals = new LinkedHashMap<>();
+            List<Vector> points = new ArrayList<>();
 
             for (int i : t) {
-                pointsAndNormals.put(sightVertices.get(i), normals.get(i));
+                pointsToNormals.put(sightVertices.get(i), normals.get(i));
+                points.add(sightVertices.get(i));
             }
 
-            // sorting points by screen y value
-            pointsAndNormals = pointsAndNormals.entrySet().stream().sorted((e1, e2) -> Double.compare(
-                    camera.sight2Screen(
-                            e1.getKey(), width, height).getValue(1),
-                    camera.sight2Screen(
-                            e2.getKey(), width, height).getValue(1)))
-                    .collect(Collectors.toMap(Entry::getKey, Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+            // Sorting by y value
+            points.sort((p1, p2) -> Double.compare(camera.sight2Screen(p1, width, height).getValue(1),
+                    camera.sight2Screen(p2, width, height).getValue(1)));
 
-            List<Vector> points = pointsAndNormals.keySet().stream().collect(Collectors.toList());
-            List<Vector> verticesNormals = pointsAndNormals.values().stream().collect(Collectors.toList());
+            List<Vector> verticesNormals = new ArrayList<>();
+
+            for (Vector p : points) {
+                verticesNormals.add(pointsToNormals.get(p));
+            }
 
             // straight base
             drawTriangle(points, verticesNormals);
@@ -395,7 +395,7 @@ public class RendererApp extends PApplet {
             barycenter2 = Vector.add(barycenter2, Vector.scalarDiv(points.get(i), 3));
         }
 
-        return Double.compare(barycenter2.getValue(2), barycenter1.getValue(2));
+        return Double.compare(barycenter1.getValue(2), barycenter2.getValue(2));
     }
 
     private List<Vector> calculateNormals(List<List<Integer>> triangles, List<Vector> vertices) {
@@ -443,12 +443,12 @@ public class RendererApp extends PApplet {
         int y2 = (int) screenPoints.get(2).getValue(1);
 
         // Offscreen triangles
-        if (y0 > height || y2 < 0)
+        if (y0 >= height || y2 < 0)
             return;
 
-        if (x1 > x2 && (x1 < 0 || x2 > width))
+        if (x1 > x2 && (x1 < 0 || x2 >= width))
             return;
-        else if (x2 > x1 && (x2 < 0 || x1 > width))
+        else if (x2 > x1 && (x2 < 0 || x1 >= width))
             return;
 
         // defining the slopes
@@ -459,13 +459,18 @@ public class RendererApp extends PApplet {
         int y = y0;
 
         // first half
-        while (y <= y1) {
+        while (y < y1) {
 
             int xStart = (xMin < xMax) ? (int) (xMin + 0.5) : (int) (xMax + 0.5);
             int xEnd = (xMin < xMax) ? (int) (xMax + 0.5) : (int) (xMin + 0.5);
 
-            for (int x = xStart; x <= xEnd; x++) {
-                drawPoint(x, y, screenPoints, points, normals);
+            if (y >= 0 && y < height) {
+                for (int x = xStart; x <= xEnd; x++) {
+
+                    if (x < 0 || x >= width)
+                        continue;
+                    drawPoint(x, y, screenPoints, points, normals);
+                }
             }
 
             y++;
@@ -475,9 +480,9 @@ public class RendererApp extends PApplet {
 
         dx1 = (y2 - y1 > 0) ? (x2 - x1) / (double) (y2 - y1) : 0;
 
-        y = y1 + 1;
+        y = y1;
         xMax = dx2 * (y - y0) + x0;
-        xMin = x1 + dx1;
+        xMin = dx1 * (y - y1) + x1;
 
         // second half
         while (y <= y2) {
@@ -485,8 +490,13 @@ public class RendererApp extends PApplet {
             int xStart = (xMin < xMax) ? (int) (xMin + 0.5) : (int) (xMax + 0.5);
             int xEnd = (xMin < xMax) ? (int) (xMax + 0.5) : (int) (xMin + 0.5);
 
-            for (int x = xStart; x <= xEnd; x++) {
-                drawPoint(x, y, screenPoints, points, normals);
+            if (y >= 0 && y < height) {
+                for (int x = xStart; x <= xEnd; x++) {
+
+                    if (x < 0 || x >= width)
+                        continue;
+                    drawPoint(x, y, screenPoints, points, normals);
+                }
             }
 
             y++;
@@ -508,12 +518,12 @@ public class RendererApp extends PApplet {
             double percent = (y - screenTriangle.get(0).getValue(1)) /
                     (screenTriangle.get(2).getValue(1) - screenTriangle.get(0).getValue(1));
 
-            Vector P = Vector.lerp(triangle.get(0), triangle.get(1), percent);
-            Vector normal = Vector.lerp(normals.get(0), normals.get(1), percent);
+            Vector P = Vector.lerp(triangle.get(0), triangle.get(2), percent);
+            Vector normal = Vector.lerp(normals.get(0), normals.get(2), percent);
 
             normal = Vector.normalize(normal);
 
-            if (P.getValue(2) > 0 && zBuffer[x][y] > P.getValue(2)) {
+            if (P.getValue(2) > 0 && zBuffer[x][y] >= P.getValue(2)) {
                 zBuffer[x][y] = P.getValue(2);
                 set(x, y, calculateIlumination(P, normal));
             }
@@ -534,7 +544,7 @@ public class RendererApp extends PApplet {
             P = Vector.add(P, Vector.scalarMult(triangle.get(1), baryCoord.getValue(1)));
             P = Vector.add(P, Vector.scalarMult(triangle.get(2), baryCoord.getValue(2)));
 
-            if (P.getValue(2) > 0 && zBuffer[x][y] > P.getValue(2)) {
+            if (P.getValue(2) > 0 && zBuffer[x][y] >= P.getValue(2)) {
                 zBuffer[x][y] = P.getValue(2);
 
                 Vector normal = Vector.scalarMult(normals.get(0), baryCoord.getValue(0));
@@ -594,7 +604,7 @@ public class RendererApp extends PApplet {
 
         double alpha = alphaBeta.getValue(0, 0);
 
-        // Double variables sometimes are REALLY precise, round it to zero or one if it
+        // Double variables sometimes are REALLY precise, ceil it to zero or one if it
         // is close enough
         if (alpha < 0 && alpha > -1e-5)
             alpha = 0;
@@ -603,7 +613,7 @@ public class RendererApp extends PApplet {
 
         double beta = alphaBeta.getValue(1, 0);
 
-        // Double variables sometimes are REALLY precise, round it to zero or one if it
+        // Double variables sometimes are REALLY precise, ceil it to zero or one if it
         // is close enough
         if (beta < 0 && beta > -1e-5)
             beta = 0;
@@ -636,16 +646,16 @@ public class RendererApp extends PApplet {
 
         boolean ignoreLightSource = false, ignoreSpecular = false;
 
+        // If normal is not pointing towards the camera, invert it
+        if (Vector.dot(V, N) < 0) {
+            N = Vector.scalarMult(N, -1);
+        }
+
         double dotNL = Vector.dot(N, L);
 
         // Checking diffuse lighting special cases
         if (dotNL < 0) {
-            if (Vector.dot(V, N) < 0) {
-                N = Vector.scalarMult(N, -1);
-                dotNL = Vector.dot(N, L);
-            } else {
-                ignoreLightSource = true;
-            }
+            ignoreLightSource = true;
         }
 
         Vector R = Vector.sub(Vector.scalarMult(N, 2 * dotNL), L);
